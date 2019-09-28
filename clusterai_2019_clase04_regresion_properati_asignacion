@@ -1,0 +1,236 @@
+01) Importar librerias correspondientes¶
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn import preprocessing
+from sklearn.model_selection import train_test_split
+from sklearn.linear_model import LinearRegression
+from sklearn.svm import SVR
+from sklearn.svm import LinearSVR
+from sklearn.neighbors import KNeighborsRegressor
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.model_selection import GridSearchCV
+02) Importar dataset de properati
+pwd
+'C:\\Users\\Alejandra\\Google Drive\\5° año\\Ciencia de datos\\clase_04-master'
+properati = pd.read_csv(r'C:\Users\Alejandra\Google Drive\5° año\Ciencia de datos\clase_04-master\clusterai_2019_clase04_regresion_dataset_properati_caba.csv', delimiter=',', parse_dates = True)
+np.shape(properati)
+(25319, 13)
+properati.head()
+id	created_on	operation	property_type	neighbourhood	lat	lon	price	surface_total_in_m2	surface_covered_in_m2	floor	rooms	expenses
+0	1649a3c35359d681abae4a63d9a8545054d2096b	2017-09-22	sell	house	Palermo Viejo	-34.588953	-58.429882	2000000.0	312.0	NaN	NaN	NaN	NaN
+1	1ab035ccbe77702987c3f09850d12c634e612aa2	2017-09-01	sell	PH	Parque Chacabuco	-34.635866	-58.431048	131500.0	80.0	50.0	NaN	3.0	NaN
+2	90fc7c61b6fbc6ef99368a21cd9ac0d30d54c697	2017-09-01	sell	apartment	Barracas	-34.644924	-58.371919	140000.0	125.0	85.0	NaN	NaN	NaN
+3	c195e8f3a596ab49b95d699c07e1a04be503ba68	2017-09-01	sell	apartment	Recoleta	-34.596511	-58.385747	109000.0	45.0	45.0	2.0	2.0	3350.0
+4	f891875ff44e6f99e30e101b3901d1e7510ef41b	2017-09-01	sell	apartment	Parque Patricios	-34.639173	-58.417069	94000.0	38.0	38.0	NaN	NaN	NaN
+03) Revisar con que columnas trabajar para luego quitarle los NaNs (queremos predecir precio)
+properati.isnull().sum()
+id                           0
+created_on                   0
+operation                    0
+property_type                0
+neighbourhood                0
+lat                       1048
+lon                       1048
+price                     1928
+surface_total_in_m2       3323
+surface_covered_in_m2     2529
+floor                    22093
+rooms                     6607
+expenses                 20289
+dtype: int64
+properati = properati.dropna(subset = ["price"])
+properati = properati.dropna(subset = ["surface_total_in_m2"])
+properati = properati.dropna(subset = ["lat"])
+properati = properati.dropna(subset = ["rooms"])
+properati.isnull().sum()
+id                           0
+created_on                   0
+operation                    0
+property_type                0
+neighbourhood                0
+lat                          0
+lon                          0
+price                        0
+surface_total_in_m2          0
+surface_covered_in_m2      460
+floor                    13987
+rooms                        0
+expenses                 12848
+dtype: int64
+properati = properati.dropna(subset = ["lon"])
+properati = properati.dropna(subset = ["surface_covered_in_m2"])
+properati.shape
+(15695, 13)
+04) Quitar Outliers de las variables que consideren utilizando cuantiles
+properati = properati.drop(['floor', 'expenses', 'created_on', 'operation','id'], axis=1)
+properati.head()
+property_type	neighbourhood	lat	lon	price	surface_total_in_m2	surface_covered_in_m2	rooms
+1	PH	Parque Chacabuco	-34.635866	-58.431048	131500.0	80.0	50.0	3.0
+3	apartment	Recoleta	-34.596511	-58.385747	109000.0	45.0	45.0	2.0
+5	apartment	Flores	-34.639497	-58.531714	160000.0	76.0	76.0	3.0
+6	apartment	Caballito	-34.628021	-58.460598	160000.0	76.0	76.0	3.0
+7	apartment	Villa Crespo	-34.592540	-58.434245	240435.0	101.0	75.0	3.0
+np.max(properati)
+property_type                       store
+neighbourhood            Villa del Parque
+lat                              -28.4443
+lon                              -58.3544
+price                         1.72514e+07
+surface_total_in_m2                184000
+surface_covered_in_m2              150000
+rooms                                  34
+dtype: object
+price_q97 = properati.price.quantile(0.975)
+print("el cuantil 0.97 de la feature 'price' es = " + str(price_q97))
+el cuantil 0.97 de la feature 'price' es = 2100047.45
+surface_total_in_m2_q97 = properati.surface_total_in_m2.quantile(0.975) 
+print("el cuantil 0.97 de la feature 'surface_total_in_m2' es = " + str(surface_total_in_m2_q97))
+el cuantil 0.97 de la feature 'surface_total_in_m2' es = 380.0
+05) Realizar feature engineering si fuera necesario
+properati_filt=properati.loc[(properati.price<price_q97)&(properati.surface_total_in_m2<surface_total_in_m2_q97)]
+properati_filt.shape
+(14986, 8)
+properati_filt.head()
+property_type	neighbourhood	lat	lon	price	surface_total_in_m2	surface_covered_in_m2	rooms
+1	PH	Parque Chacabuco	-34.635866	-58.431048	131500.0	80.0	50.0	3.0
+3	apartment	Recoleta	-34.596511	-58.385747	109000.0	45.0	45.0	2.0
+5	apartment	Flores	-34.639497	-58.531714	160000.0	76.0	76.0	3.0
+6	apartment	Caballito	-34.628021	-58.460598	160000.0	76.0	76.0	3.0
+7	apartment	Villa Crespo	-34.592540	-58.434245	240435.0	101.0	75.0	3.0
+neighs_dummie = pd.get_dummies(properati_filt.neighbourhood)
+neighs_dummie.head(3)
+Abasto	Agronomía	Almagro	Balvanera	Barracas	Barrio Norte	Belgrano	Boca	Boedo	Caballito	...	Villa General Mitre	Villa Lugano	Villa Luro	Villa Ortuzar	Villa Pueyrredón	Villa Real	Villa Santa Rita	Villa Soldati	Villa Urquiza	Villa del Parque
+1	0	0	0	0	0	0	0	0	0	0	...	0	0	0	0	0	0	0	0	0	0
+3	0	0	0	0	0	0	0	0	0	0	...	0	0	0	0	0	0	0	0	0	0
+5	0	0	0	0	0	0	0	0	0	0	...	0	0	0	0	0	0	0	0	0	0
+3 rows × 59 columns
+
+neighs_dummie.shape
+(14986, 59)
+room_dummie = pd.get_dummies(properati_filt.property_type)
+room_dummie.head(3)
+PH	apartment	house	store
+1	1	0	0	0
+3	0	1	0	0
+5	0	1	0	0
+properati_filt = properati_filt.join([neighs_dummie, room_dummie])
+properati_filt.head()
+property_type	neighbourhood	lat	lon	price	surface_total_in_m2	surface_covered_in_m2	rooms	Abasto	Agronomía	...	Villa Pueyrredón	Villa Real	Villa Santa Rita	Villa Soldati	Villa Urquiza	Villa del Parque	PH	apartment	house	store
+1	PH	Parque Chacabuco	-34.635866	-58.431048	131500.0	80.0	50.0	3.0	0	0	...	0	0	0	0	0	0	1	0	0	0
+3	apartment	Recoleta	-34.596511	-58.385747	109000.0	45.0	45.0	2.0	0	0	...	0	0	0	0	0	0	0	1	0	0
+5	apartment	Flores	-34.639497	-58.531714	160000.0	76.0	76.0	3.0	0	0	...	0	0	0	0	0	0	0	1	0	0
+6	apartment	Caballito	-34.628021	-58.460598	160000.0	76.0	76.0	3.0	0	0	...	0	0	0	0	0	0	0	1	0	0
+7	apartment	Villa Crespo	-34.592540	-58.434245	240435.0	101.0	75.0	3.0	0	0	...	0	0	0	0	0	0	0	1	0	0
+5 rows × 71 columns
+
+print("La cantidad de features nuevas agregadas a dataframe son = " + str(np.shape(neighs_dummie)[1]+np.shape(room_dummie)[1]))
+La cantidad de features nuevas agregadas a dataframe son = 63
+06) Separar Y (price) & X (decidir que features utilizar para trabajar)
+Recuerden realizar auto scaling sobre las variables en cuestion
+
+y = np.array(properati_filt[["price"]])
+x = properati_filt.drop(['price', 'neighbourhood','property_type'], axis=1) 
+np.shape(x)
+(14986, 68)
+3
+xtrain, xtest, ytrain, ytest = train_test_split(x, y, test_size=0.30, random_state=3)
+xtrain.head()
+lat	lon	surface_total_in_m2	surface_covered_in_m2	rooms	Abasto	Agronomía	Almagro	Balvanera	Barracas	...	Villa Pueyrredón	Villa Real	Villa Santa Rita	Villa Soldati	Villa Urquiza	Villa del Parque	PH	apartment	house	store
+6273	-34.630510	-58.390788	202.0	202.0	10.0	0	0	0	0	0	...	0	0	0	0	0	0	1	0	0	0
+21240	-34.555177	-58.452681	86.0	82.0	4.0	0	0	0	0	0	...	0	0	0	0	0	0	0	1	0	0
+2587	-34.603770	-58.493218	56.0	47.0	2.0	0	0	0	0	0	...	0	0	0	0	0	1	0	1	0	0
+2014	-34.562784	-58.476755	83.0	72.0	3.0	0	0	0	0	0	...	0	0	0	0	0	0	0	1	0	0
+21733	-34.592904	-58.415296	66.0	66.0	3.0	0	0	0	0	0	...	0	0	0	0	0	0	0	1	0	0
+5 rows × 68 columns
+
+xtrain.shape
+(10490, 68)
+07) Implementar un modelo de regresion para predecir el precio. De ser posible comparar performance de distintos modelos.
+scaler = preprocessing.StandardScaler().fit(xtrain)
+scaler
+StandardScaler(copy=True, with_mean=True, with_std=True)
+xtrain_scal = scaler.transform(xtrain)
+xtest_scal = scaler.transform(xtest)  
+lr = LinearRegression()
+lr.fit(xtrain_scal, ytrain)
+LinearRegression(copy_X=True, fit_intercept=True, n_jobs=None, normalize=False)
+ypred = lr.predict(xtest_scal)
+np.shape(ypred)
+(4496, 1)
+np.sqrt(mean_squared_error(ytest, ypred))
+257942.6365624901
+mean_squared_error(ytest, ypred)
+66534403756.80886
+from sklearn.metrics import mean_absolute_error
+mean_absolute_error(ytest, ypred)
+122815.81384720963
+neigh = KNeighborsRegressor(weights = "distance")
+parameters_k = np.arange(20,31,5)
+parameters_k
+array([20, 25, 30])
+parameters_knn = [{'n_neighbors': parameters_k}]
+n_folds = 5
+regresor_neigh = GridSearchCV(neigh, parameters_knn, refit = True, cv=n_folds, verbose=True)
+regresor_neigh.fit(xtrain_scal, ytrain)
+Fitting 5 folds for each of 3 candidates, totalling 15 fits
+[Parallel(n_jobs=1)]: Using backend SequentialBackend with 1 concurrent workers.
+[Parallel(n_jobs=1)]: Done  15 out of  15 | elapsed:   22.7s finished
+GridSearchCV(cv=5, error_score='raise-deprecating',
+             estimator=KNeighborsRegressor(algorithm='auto', leaf_size=30,
+                                           metric='minkowski',
+                                           metric_params=None, n_jobs=None,
+                                           n_neighbors=5, p=2,
+                                           weights='distance'),
+             iid='warn', n_jobs=None,
+             param_grid=[{'n_neighbors': array([20, 25, 30])}],
+             pre_dispatch='2*n_jobs', refit=True, return_train_score=False,
+             scoring=None, verbose=True)
+regresor_neigh.best_params_
+{'n_neighbors': 20}
+regresor_neigh.best_score_
+0.7092239831177589
+ypred2 = regresor_neigh.predict(xtest_scal)
+ypred2
+array([[ 98062.9309463 ],
+       [126249.        ],
+       [156286.38722743],
+       ...,
+       [709049.12024733],
+       [478799.58051519],
+       [127000.        ]])
+np.sqrt(mean_squared_error(ytest, ypred2))
+158321.21704725188
+sns.distplot(ytest)
+plt.show()
+
+svreg = SVR()
+n_folds = 5
+parameters_svr_lin = [{'kernel':['linear'], 'C': [1, 100]}]
+​
+parameters_svr_rbf = [{'kernel':['rbf'] , 'C': [1,100],'gamma': [0.1,0.5] }]
+regresor_svr = GridSearchCV(svreg, parameters_svr_lin, cv=n_folds, verbose=True)
+regresor_svr.fit(xtrain_scal, ytrain.ravel())
+Fitting 5 folds for each of 2 candidates, totalling 10 fits
+[Parallel(n_jobs=1)]: Using backend SequentialBackend with 1 concurrent workers.
+[Parallel(n_jobs=1)]: Done  10 out of  10 | elapsed:  2.3min finished
+GridSearchCV(cv=5, error_score='raise-deprecating',
+             estimator=SVR(C=1.0, cache_size=200, coef0=0.0, degree=3,
+                           epsilon=0.1, gamma='auto_deprecated', kernel='rbf',
+                           max_iter=-1, shrinking=True, tol=0.001,
+                           verbose=False),
+             iid='warn', n_jobs=None,
+             param_grid=[{'C': [1, 100], 'kernel': ['linear']}],
+             pre_dispatch='2*n_jobs', refit=True, return_train_score=False,
+             scoring=None, verbose=True)
+regresor_svr.best_params_
+{'C': 100, 'kernel': 'linear'}
+regresor_svr.best_score_
+0.2930321800579557
+ypred3 = regresor_svr.predict(xtest_scal)
+ypred3
+array([ 96082.64524911, 123875.58245036,  90895.41758987, ...,
+       742010.29827073, 445745.1957321 , 121701.10413358])
+np.sqrt(mean_squared_error(ytest, ypred3))
+277187.45565504086
